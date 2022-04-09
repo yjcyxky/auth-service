@@ -1,0 +1,94 @@
+version: '3.4'
+
+networks: 
+  ${EXTERNAL_NETWORK}:
+    external:
+      name: ${EXTERNAL_NETWORK}
+
+volumes:
+  dbdata:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: "${DATA_DIR}/db"
+
+services:
+  kong-db:
+    image: postgres:11-alpine
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - ${EXTERNAL_NETWORK}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  kong:
+    build:
+      context: ./      
+    image: kong-oidc:latest
+    depends_on:
+      - kong-db
+    networks:
+      - ${EXTERNAL_NETWORK}
+    ports:
+      - "${KONG_PORT}:8000" # Listener
+      - "${KONG_ADMIN_PORT}:8001" # Admin API
+      - "${KONG_HTTPS_PORT}:8443" # Listener  (SSL)
+      - "${KONG_ADMIN_HTTPS_PORT}:8444" # Admin API (SSL)
+    environment:
+      KONG_DATABASE:         postgres
+      KONG_PG_HOST:          kong-db
+      KONG_PG_PORT:          5432
+      KONG_PG_DATABASE:      ${POSTGRES_DB}
+      KONG_PG_USER:          ${POSTGRES_USER}
+      KONG_PG_PASSWORD:      ${POSTGRES_PASSWORD}
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG:  /dev/stderr
+      KONG_ADMIN_ERROR_LOG:  /dev/stderr
+      KONG_PROXY_LISTEN:     0.0.0.0:${KONG_PORT}, 0.0.0.0:${KONG_HTTPS_PORT} ssl
+      KONG_ADMIN_LISTEN:     0.0.0.0:${KONG_ADMIN_PORT}, 0.0.0.0:${KONG_ADMIN_HTTPS_PORT} ssl
+      KONG_PLUGINS:          bundled,oidc
+      KONG_LOG_LEVEL:        debug
+
+  konga:
+    image: pantsel/konga:0.14.9
+    depends_on:
+      - kong
+    networks:
+      - ${EXTERNAL_NETWORK}
+    ports:
+      - "1337:1337" # konga
+    environment:
+      DB_ADAPTER: postgres
+      DB_HOST: kong-db
+      DB_PORT: '5432'
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_DATABASE: ${POSTGRES_DB}
+      NODE_ENV: development
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:17.0.0
+    depends_on:
+      - kong-db
+    command: start-dev
+    networks:
+      - ${EXTERNAL_NETWORK}
+    ports:
+      - "${KEYCLOAK_PORT}:8080"
+    environment:
+      DB_VENDOR:   POSTGRES
+      DB_ADDR:     kong-db
+      DB_PORT:     5432
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USER:     ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_ADMIN:     ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+
