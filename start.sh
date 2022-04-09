@@ -2,7 +2,7 @@
 
 set -e
 
-# docker network create quartet-network
+# docker network create biominer-lab-network
 docker-compose build kong
 docker-compose up -d kong-db
 docker-compose run --rm kong kong migrations bootstrap

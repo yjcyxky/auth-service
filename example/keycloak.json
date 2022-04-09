@@ -1,0 +1,8 @@
+{
+  "realm": "experimental",
+  "auth-server-url": "http://192.168.31.87:8180/",
+  "ssl-required": "external",
+  "resource": "myapp",
+  "public-client": true,
+  "confidential-port": 0
+}

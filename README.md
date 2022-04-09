@@ -1,13 +1,35 @@
 # Kong / Konga / Keycloak: securing API through OIDC
 
+## NOTES
+### Keycloak Configuration
+- Need to Add a New Realm
+- Need to Add Two Clients
+  - One client that will be used by Kong, through the OIDC plugin.
+    > The important thing here is the access type: "public" means that the login process needs users credentials to be completed.
+    > 
+    > If you need to redirect to the Keycloak's login page, you need to config the `Root URL (such as http://192.168.31.87:3000)`, `Valid Redirect URIs (such as http://192.168.31.87:3000/*)` and `Web Origins (such as http://192.168.31.87:3000)`, 
+
+  - Another client that we'll use to access the API through Kong.
+    > Client Protocol: this account is for OIDC, so choose "openid-connect"
+    >
+    > Access Type: "confidential". This clients requires a secret to initiate the login process. This key will be used later on kong OIDC configuration.
+    >
+    > Root Url
+    >
+    > Valid redirect URLs
+
+### References
+1. [Keycloak Configuration](https://github.com/d4rkstar/kong-konga-keycloak)
+2. [Kong社区版集成Keycloak实现微服务认证与鉴权](https://blog.csdn.net/nklinsirui/article/details/119011660)
+
 ## Credits
 
 [Securing APIs with Kong and Keycloak - Part 1](https://www.jerney.io/secure-apis-kong-keycloak-1/) by Joshua A Erney
 
 ## Requirements
 
-- [**docker**](https://docs.docker.com/install/)
-- [**docker-compose**](https://docs.docker.com/compose/overview/)
+- [**Docker**](https://docs.docker.com/install/)
+- [**Docker Compose**](https://docs.docker.com/compose/overview/)
 - [**jq**](https://stedolan.github.io/jq/)
 - [**curl** cheatsheet ;)](https://devhints.io/curl)
 - Patience
@@ -128,13 +150,11 @@ And finally, let's verify that the OIDC plugin is present on Kong:
 curl -s http://localhost:8001 | jq .plugins.available_on_server.oidc
 ```
 
-The result of this call should be `true`. The presence of the plugin does not indicate that it is
-already active.
+The result of this call should be `true`. The presence of the plugin does not indicate that it is already active.
 
 ## 3. Konga
 
-Konga is an administration panel for Kong. It offers us a visual panel through which to carry out Kong's
-configurations (as well as inspect the configurations made from the command line).
+Konga is an administration panel for Kong. It offers us a visual panel through which to carry out Kong's configurations (as well as inspect the configurations made from the command line).
 
 We start konga with the command:
 
@@ -145,20 +165,17 @@ docker-compose up -d konga
 Konga is listening on port 1337. Therefore we launch a browser and point to the url
 [http://localhost:1337](http://localhost:1337).
 
-The first time we log in to konga we will need to register the administrator account. For tests, use
-simple, easy-to-remember credentials. For production systems, use passwords that meet safety standards!
+The first time we log in to konga we will need to register the administrator account. For tests, use simple, easy-to-remember credentials. For production systems, use passwords that meet safety standards!
 
 After registering the administrator user, it will be possible to log in.
 
-Once logged in, we will need to activate the connection to Kong. Enter in "Name" the value "kong" and
-as "Kong Admin URL" the following address: `http://kong:8001` then save.
+Once logged in, we will need to activate the connection to Kong. Enter in "Name" the value "kong" and as "Kong Admin URL" the following address: `http://kong:8001` then save.
 
 At this point we will have our instance of Konga ready for use!
 
 ## 4. Creation of a service and a route
 
-To test the system, we will use [Mockbin](http://mockbin.org/) (a service that generates endpoints to
-test HTTP requests, responses, sockets and APIs).
+To test the system, we will use [Mockbin](http://mockbin.org/) (a service that generates endpoints to test HTTP requests, responses, sockets and APIs).
 
 As a reference, please refer to [Kong's Admin API](https://docs.konghq.com/1.3.x/admin-api).
 
