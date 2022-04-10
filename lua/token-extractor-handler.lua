@@ -37,15 +37,15 @@ function TokenToHeaderExtractorHandler:access(conf)
     
     for entity, err in kong.db.token_to_header_extractor:each(100) do
         if err then
-            kong.log.err("Error when iterating over token to header extractor credentials: " .. err)
+            kong.log.debug("Error when iterating over token to header extractor credentials: " .. err)
             return nil
         end
 
-        kong.log("token_name: " .. entity.token_name)                                               
-        kong.log("headers: " .. dump(ngx.req.get_headers()))                                              
+        kong.log.debug("Token Name: " .. entity.token_name)                                               
+        kong.log.debug("Headers: " .. dump(ngx.req.get_headers()))                                              
         local header = ngx.req.get_headers()[entity.token_name];                                    
         if header then                      
-            kong.log("header: " .. header)
+            kong.log.debug("Raw Token: " .. header)
             local re_gmatch = ngx.re.gmatch  
             local iterator, iter_err = re_gmatch(header, "\\s*[Bb]earer\\s+(.+)")
             if not iterator then
@@ -62,7 +62,7 @@ function TokenToHeaderExtractorHandler:access(conf)
             if m and #m > 0 then
               local token = m[1]
                                                     
-              kong.log("token: " .. token)  
+              kong.log.debug("Token: " .. token)  
               local jwt, err = jwt_decoder:new(token)
               local claims = jwt.claims
               for claim_key, claim_value in pairs(claims) do

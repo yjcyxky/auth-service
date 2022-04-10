@@ -60,7 +60,7 @@ services:
       KONG_PROXY_LISTEN:     0.0.0.0:${KONG_PORT}, 0.0.0.0:${KONG_HTTPS_PORT} ssl
       KONG_ADMIN_LISTEN:     0.0.0.0:${KONG_ADMIN_PORT}, 0.0.0.0:${KONG_ADMIN_HTTPS_PORT} ssl
       KONG_PLUGINS:          bundled,oidc,token-to-header-extractor
-      KONG_LOG_LEVEL:        debug
+      KONG_LOG_LEVEL:        error
     restart: on-failure
 
   konga:
@@ -79,7 +79,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_DATABASE: kong
-      NODE_ENV: development
+      NODE_ENV: production
 
   keycloak:
     image: quay.io/keycloak/keycloak:17.0.0

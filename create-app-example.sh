@@ -52,7 +52,7 @@ curl -s -X POST ${KONG_ADMIN_API}/services/${SERVICE_NAME}/plugins \
 ## Add Token Extractor Plugin for Service
 curl -s -X POST ${KONG_ADMIN_API}/plugins \
     -d "name=token-to-header-extractor" \
-    -d "config.log_errors=true" \
+    -d "config.log_errors=false" \
     | python -mjson.tool
 
 ## Configuring Token, Key and Header Name values
