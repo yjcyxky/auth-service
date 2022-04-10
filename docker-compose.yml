@@ -80,9 +80,15 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_DATABASE: kong
       NODE_ENV: production
+    healthcheck:
+      test: "wget --spider http://localhost:1337/api/settings || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
 
   keycloak:
-    image: quay.io/keycloak/keycloak:17.0.0
+    image: quay.io/keycloak/keycloak:17.0.1
     depends_on:
       database:
         condition: service_healthy
@@ -102,3 +108,9 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    healthcheck:
+      test: "curl -f http://localhost:8080/realms/master || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
