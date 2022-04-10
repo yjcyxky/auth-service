@@ -87,30 +87,35 @@ We will just have to give the command:
 
 ```bash
 bash build-kong-image.sh
-
-docker-compose up -d
 ```
 
 and wait for the image to build.
 
-## 2. launch all the containers (Kong DB + Database Migrations + Kong + Konga + Keycloak)
+## 2. launch all the containers 
 
-Kong uses a database server (postgresql in our case). For this reason it is necessary to initialize the database by launching the necessary migrations.
+Launch Database + Kong + Konga + Keycloak Containers
 
-Konga is an administration panel for Kong. It offers us a visual panel through which to carry out Kong's configurations (as well as inspect the configurations made from the command line).
+```bash
+docker-compose up -d
+```
 
-Konga is listening on port 1337. Therefore we launch a browser and point to the url
-[http://localhost:1337](http://localhost:1337).
+NOTE: 
+> Kong uses a database server (postgresql in our case). For this reason it is necessary to initialize the database by launching the necessary migrations.
+>
+> Konga is an administration panel for Kong. It offers us a visual panel through which to carry out Kong's configurations (as well as inspect the configurations made from the command line).
+>
+> Konga is listening on port 1337. Therefore we launch a browser and point to the url [http://localhost:1337](http://localhost:1337).
+>
+> The first time we log in to konga we will need to register the administrator account. For tests, use simple, easy-to-remember credentials. For production systems, use passwords that meet safety standards!
+>
+> After registering the administrator user, it will be possible to log in.
+>
+> Once logged in, we will need to activate the connection to Kong. Enter in "Name" the value "kong" and as "Kong Admin URL" the following address: `http://kong:8001` then save.
+>
+> At this point we will have our instance of Konga ready for use!
 
-The first time we log in to konga we will need to register the administrator account. For tests, use simple, easy-to-remember credentials. For production systems, use passwords that meet safety standards!
-
-After registering the administrator user, it will be possible to log in.
-
-Once logged in, we will need to activate the connection to Kong. Enter in "Name" the value "kong" and as "Kong Admin URL" the following address: `http://kong:8001` then save.
-
-At this point we will have our instance of Konga ready for use!
-
-## 3. Creation of a service and a route
+## 3. Config Keycloak and Kong (Don't need to redirect to login page.)
+### Creation of a service and a route
 
 To test the system, we will use [Mockbin](http://mockbin.org/) (a service that generates endpoints to test HTTP requests, responses, sockets and APIs).
 
@@ -130,11 +135,10 @@ $ curl -s -X POST http://localhost:8001/services \
 }
 ```
 
-Make a note of your service id (in the example it is e71c82d3-2e53-469b-9beb-a232a15f86d4) and use it
-to make the next call to kong's api that allows you to add a route to the service.
+Make a note of your service name (in the example it is mock-service) and use it to make the next call to kong's api that allows you to add a route to the service.
 
 ```bash
-$ curl -s -X POST http://localhost:8001/services/e71c82d3-2e53-469b-9beb-a232a15f86d4/routes -d "paths[]=/mock" \
+$ curl -s -X POST http://localhost:8001/services/mock-service/routes -d "paths[]=/mock" \
     | python -mjson.tool
 {
     "created_at": 1556146020,
@@ -164,26 +168,25 @@ $ curl -s http://localhost:8000/mock
 
 ```
 
-## 4. Configuration of realm and clients in Keycloak
+### Configuration of realm and clients in Keycloak
 
-### Keypoints
-- Need to Add a New Realm
-- Need to Add Two Clients
+#### Keypoints
+- Need to add a new realm (Don't use `Master` realm)
+  The realm name need lowercase letters and no spaces, such as quartet-data-portal.
+- Need to add two clients
   - One client that will be used by Kong, through the OIDC plugin.
     > The important thing here is the access type: "public" means that the login process needs users credentials to be completed.
-    > 
-    > If you need to redirect to the Keycloak's login page, you need to config the `Root URL (such as http://192.168.31.87:3000)`, `Valid Redirect URIs (such as http://192.168.31.87:3000/*)` and `Web Origins (such as http://192.168.31.87:3000)`, 
 
-  - Another client that we'll use to access the API through Kong.
-    > Client Protocol: this account is for OIDC, so choose "openid-connect"
+  - One client that we'll use to access the API through Kong.
+    > `Client Protocol`: this account is for OIDC, so choose "openid-connect"
     >
-    > Access Type: "confidential". This clients requires a secret to initiate the login process. This key will be used later on kong OIDC configuration.
+    > `Access Type`: "confidential". This clients requires a secret to initiate the login process. This key will be used later on kong OIDC configuration.
     >
-    > Root Url
+    > `Root Url`
     >
-    > Valid redirect URLs
+    > `Valid redirect URLs`
 
-### How to config Keycloak
+#### How to config Keycloak
 Keycloak will be available at the url [http://localhost:8180](http://localhost:8180).
 
 You can login using credentials inside the docker-compose.yml file. (default credentials are
@@ -196,8 +199,7 @@ name (Master) on the upper left corner:
 
 ![Keycloak add Realm](images/keycloak-add-realm.png)
 
-You need to give the realm a name. For this README i've choosen the name "experimental" but you can
-choose the name you prefer:
+You need to give the realm a name. For this README i've choosen the name "experimental" but you can choose the name you prefer:
 
 ![Keycloak New Realm](images/keycloak-new-realm.png)
 
@@ -209,11 +211,10 @@ This page has a lot of tabs, with lots of configuration fields :astonished:
 
 However, after the realm is created, we need to add two clients:
 
-- One client that will be used by Kong, through the OIDC plugin
-- Another client that we'll use to access the API through Kong.
+- One client that we'll use to access the API through Kong.
+- Another client that will be used by Kong, through the OIDC plugin
 
-We'll name the first client "kong". Choose "Clients" from the left side bar menu, then click the
-"Create" button on the right side of the page.
+We'll name the first client "kong". Choose "Clients" from the left side bar menu, then click the "Create" button on the right side of the page.
 
 ![Keycloak create client](images/keycloak-create-client-1.png)
 
@@ -223,11 +224,10 @@ Fill in the "Client ID" field with then "kong" string then save.
 
 Pay attention to the fields:
 
-- _Client Protocol_: this account is for OIDC, so choose "openid-connect"
-- _Access Type_: "confidential". This clients requires a secret to initiate the login process. This
-  key will be used later on kong OIDC configuration.
-- _Root Url_
-- _Valid redirect URLs_
+- _`Client Protocol`_: this account is for OIDC, so choose "openid-connect"
+- _`Access Type`_: "confidential". This clients requires a secret to initiate the login process. This key will be used later on kong OIDC configuration.
+- _`Root Url`_: YOUR_KONG_ENTRYPOINT, such as http://192.168.1.1:8000
+- _`Valid redirect URLs`_: *
 
 Under tab "Credentials", you'll find the Secret that we'll use to configure Kong OIDC:
 
@@ -237,8 +237,12 @@ Now, create a second client, named "myapp".
 
 ![Keycloak Create Client 2](images/keycloak-create-client-2.png)
 
-The important thing here is the access type: "public" means that the login process needs users credentials to be
-completed.
+Pay attention to the fields:
+
+- _`Client Protocol`_: this account is for OIDC, so choose "openid-connect"
+- _`Access Type`_: "public". The important thing here is the access type "public", means that the login process needs users credentials to be completed
+- _`Root Url`_: Don't need to set
+- _`Valid redirect URLs`_: *
 
 So, let's create a user that we'll use, later, to perform authentication.
 
@@ -248,6 +252,7 @@ Click, from the left side menu, the item "Manage" > "Users", then click - from t
 
 Pay attention to the "Email Verified" field (you should set it to on, otherwise keycloak will try to validate user's
 email).
+
 The user doesn't still have a password. So go under "Credentials" tab and fill the fields "New password" and "Password
 Confirmation" with the user's password. Put the "Temporary" switch to "Off", otherwise keycloak will ask the user to
 change the password at the first login.
@@ -258,13 +263,12 @@ Click "Reset Password" to apply the new credential.
 
 ![Change Password](images/keycloak-user-change-password.png)
 
-## 5. Kong configuration as Keycloak client
+### Kong configuration as Keycloak client
 
 to be able to activate the functionality of the OIDC with Kong as a client of Keycloak, and to allow introspection
 (points 6 and 7 of the initial image) it is necessary to invoke an Admin Rest API of Kong.
 
-The API in question is [/plugins](https://docs.konghq.com/1.3.x/admin-api/#add-plugin) which allows you to add a plugin
-globally to Kong.
+The API in question is [/plugins](https://docs.konghq.com/1.3.x/admin-api/#add-plugin) which allows you to add a plugin globally to Kong.
 
 To add the OIDC plugin, you need some information:
 
@@ -285,8 +289,7 @@ Replace the <<DEVICE_NAME_HERE>> with the name of your network interface.
 
 ![Terminal IP](images/terminal-ip.png)
 
-You should have the result of the image above. In my example, the network interface is wlp2s0 and my ip is
-192.168.88.21.
+You should have the result of the image above. In my example, the network interface is wlp2s0 and my ip is 192.168.88.21.
 
 Now set a variable with the client secret:
 
@@ -295,8 +298,7 @@ CLIENT_SECRET="02432bc5-0802-49de-9c03-b9b84301859f"
 REALM="experimental"
 ```
 
-If the HOST_IP variable is filled up correctly with your Ip address, you can use the following curl request to
-configure Kong OIDC:
+If the HOST_IP variable is filled up correctly with your Ip address, you can use the following curl request to configure Kong OIDC:
 
 ```bash
 $ curl -s -X POST http://localhost:8001/plugins \
@@ -310,12 +312,9 @@ $ curl -s -X POST http://localhost:8001/plugins \
   | python -mjson.tool
 ```
 
-If you want the details about the various -d config. we used in this request, please point your browwser to the github
-page for [Kong Oidc](https://github.com/nokia/kong-oidc). Check the "Usage" section.
+If you want the details about the various -d config. we used in this request, please point your browwser to the github page for [Kong Oidc](https://github.com/nokia/kong-oidc). Check the "Usage" section.
 
-Only pay attention to the "bearer_only=yes": with this setting kong will introspect tokens without redirecting. This is
-useful if you're build an app / webpage and want full control over the login process: infact, kong will not redirect
-the user to keycloak login page upon an unauthorized request, but will reply with 401.
+Only pay attention to the "bearer_only=yes": with this setting kong will introspect tokens without redirecting. This is useful if you're build an app / webpage and want full control over the login process: infact, kong will not redirect the user to keycloak login page upon an unauthorized request, but will reply with 401.
 
 However, Kong should reply with the configuration:
 
@@ -363,7 +362,7 @@ You can see the configuration visually through Konga > [Plugins](http://localhos
 
 We're ready to do the final test !
 
-# 6. Final test
+### Final test
 
 Before begin, be sure you've setup the HOST_IP environment variable, like done under
 [Kong Configuration](#7-Kong-configuration-as-keycloak-client).
@@ -382,10 +381,7 @@ Server: kong/1.3.0
 
 Well, kong says that we need to be authenticated! Let's do that
 
-Under the section [6. Configuration of realm and clients in Keycloak](#6-configuration-of-realm-and-clients-in-keycloak), we added an user.
-In my case it's user / pass was demouser / demouser, remember? We also created a client named "myapp" and we gave
-to this client the access type "public". If you pay attention to the following curl request, we're going to use
-that parameters to perform our login:
+Under the section [Configuration of realm and clients in Keycloak](#configuration-of-realm-and-clients-in-keycloak), we added an user. In my case it's user / pass was demouser / demouser, remember? We also created a client named "myapp" and we gave to this client the access type "public". If you pay attention to the following curl request, we're going to use that parameters to perform our login:
 
 ```bash
 RAWTKN=$(curl -s -X POST \
@@ -395,7 +391,7 @@ RAWTKN=$(curl -s -X POST \
         -d 'grant_type=password' \
         -d "client_id=myapp" \
         http://${HOST_IP}:8180/realms/experimental/protocol/openid-connect/token \
-        |jq . )
+        | jq . )
 
 echo $RAWTKN
 {
@@ -467,3 +463,12 @@ curl "http://${HOST_IP}:8000/mock" \
 ```
 
 Yeah! This works. End we reached the end of this readme! All seems to work now.
+
+## 4. Config Keycloak and Kong (If you want to redirect to the Keycloak's login page.)
+
+### Keycloak
+Replace YOUR_HOST_IP_ADDR with the ip address of your machine in the following lines:
+
+> Don't use localhost or 127.0.0.1
+
+If you need to redirect to the Keycloak's login page, you need to config the `Root URL (such as http://YOUR_HOST_IP_ADDR:3000)`, `Valid Redirect URIs (such as http://YOUR_HOST_IP_ADDR:3000/*)` and `Web Origins (such as http://YOUR_HOST_IP_ADDR:3000)`, 

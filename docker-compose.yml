@@ -41,6 +41,9 @@ services:
         condition: service_healthy
     volumes:
       - ${DATA_DIR}/kong/docker-entrypoint.sh:/docker-entrypoint.sh
+      # Temporary solution to extract user profile data from the access token
+      # Need to release as a custom plugin and replace token-to-header-extractor plugin
+      - ./lua/token-extractor-handler.lua:/usr/local/share/lua/5.1/kong/plugins/token-to-header-extractor/handler.lua
     networks:
       - biominer-lab-network
     ports:

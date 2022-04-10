@@ -1,10 +1,12 @@
 #!/bin/bash
 
-export KONG_ADMIN_API=http://192.168.31.87:8001
-export ENDPOINT=http://192.168.31.87:3001/data
+export HOST_IP=192.168.31.87
+export KEYCLOAK_API=http://${HOST_IP}:8180
+export KONG_ADMIN_API=http://${HOST_IP}:8001
+export REALM=quartet-data-portal
+
+export ENDPOINT=http://${HOST_IP}:3001/data
 export REDIRECT_PATH=/demo
-export KEYCLOAK_API=http://192.168.31.87:8180
-export REALM=experimental
 
 export SERVICE_NAME=mock-service
 export ROUTE_NAME=mock-route
@@ -63,15 +65,15 @@ curl -s -X POST ${KONG_ADMIN_API}/token_to_header_extractor \
 ## Add OIDC Plugin (Only when you don't need to redirect to keycloak login page)
 ### Get CLIENT_SECRET from Keycloak Client
 ### Only pay attention to the "bearer_only=yes": with this setting kong will introspect tokens without redirecting. This is useful if you're build an app / webpage and want full control over the login process: infact, kong will not redirect the user to keycloak login page upon an unauthorized request, but will reply with 401.
-CLIENT_SECRET="u7LgOqp2Il6CCUjUtcnPy3c8tZIYaCdY"
-REALM="${REALM}"
+CLIENT_ID=kong-api
+CLIENT_SECRET="MV5orRlJJf0yO4BPrgLGzdHr4Yd6krmn"
 
 curl -s -X POST ${KONG_ADMIN_API}/plugins \
   -d "name=oidc" \
-  -d "config.client_id=kong" \
+  -d "config.client_id=${CLIENT_ID}" \
   -d "config.client_secret=${CLIENT_SECRET}" \
   -d "config.bearer_only=yes" \
   -d "config.realm=${REALM}" \
-  -d "config.introspection_endpoint=http://${KEYCLOAK_API}/realms/${REALM}/protocol/openid-connect/token/introspect" \
-  -d "config.discovery=http://${KEYCLOAK_API}/auth/realms/${REALM}/.well-known/openid-configuration" \
+  -d "config.introspection_endpoint=${KEYCLOAK_API}/realms/${REALM}/protocol/openid-connect/token/introspect" \
+  -d "config.discovery=${KEYCLOAK_API}/auth/realms/${REALM}/.well-known/openid-configuration" \
   | python -mjson.tool
