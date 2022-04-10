@@ -47,6 +47,19 @@ curl -s -X POST ${KONG_ADMIN_API}/services/${SERVICE_NAME}/plugins \
     -d "name=jwt" \
     | python -mjson.tool
 
+## Add Token Extractor Plugin for Service
+curl -s -X POST ${KONG_ADMIN_API}/plugins \
+    -d "name=token-to-header-extractor" \
+    -d "config.log_errors=true" \
+    | python -mjson.tool
+
+## Configuring Token, Key and Header Name values
+curl -s -X POST ${KONG_ADMIN_API}/token_to_header_extractor \
+    -d "token_name=Authorization" \
+    -d "token_value_name=email" \
+    -d "header_name=X-Email" \
+    | python -mjson.tool
+
 ## Add OIDC Plugin (Only when you don't need to redirect to keycloak login page)
 ### Get CLIENT_SECRET from Keycloak Client
 ### Only pay attention to the "bearer_only=yes": with this setting kong will introspect tokens without redirecting. This is useful if you're build an app / webpage and want full control over the login process: infact, kong will not redirect the user to keycloak login page upon an unauthorized request, but will reply with 401.

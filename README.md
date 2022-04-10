@@ -1,35 +1,17 @@
 # Kong / Konga / Keycloak: securing API through OIDC
 
-## NOTES
-### Keycloak Configuration
-- Need to Add a New Realm
-- Need to Add Two Clients
-  - One client that will be used by Kong, through the OIDC plugin.
-    > The important thing here is the access type: "public" means that the login process needs users credentials to be completed.
-    > 
-    > If you need to redirect to the Keycloak's login page, you need to config the `Root URL (such as http://192.168.31.87:3000)`, `Valid Redirect URIs (such as http://192.168.31.87:3000/*)` and `Web Origins (such as http://192.168.31.87:3000)`, 
-
-  - Another client that we'll use to access the API through Kong.
-    > Client Protocol: this account is for OIDC, so choose "openid-connect"
-    >
-    > Access Type: "confidential". This clients requires a secret to initiate the login process. This key will be used later on kong OIDC configuration.
-    >
-    > Root Url
-    >
-    > Valid redirect URLs
-
-### References
-1. [Keycloak Configuration](https://github.com/d4rkstar/kong-konga-keycloak)
-2. [Kong社区版集成Keycloak实现微服务认证与鉴权](https://blog.csdn.net/nklinsirui/article/details/119011660)
+Based on https://github.com/d4rkstar/kong-konga-keycloak, but with some changes. Thanks to d4rkstar!
 
 ## Credits
 
-[Securing APIs with Kong and Keycloak - Part 1](https://www.jerney.io/secure-apis-kong-keycloak-1/) by Joshua A Erney
+- [Securing APIs with Kong and Keycloak - Part 1](https://www.jerney.io/secure-apis-kong-keycloak-1/) by Joshua A Erney
+- [Kong社区版集成Keycloak实现微服务认证与鉴权](https://blog.csdn.net/nklinsirui/article/details/119011660)
 
 ## Requirements
 
 - [**Docker**](https://docs.docker.com/install/)
 - [**Docker Compose**](https://docs.docker.com/compose/overview/)
+    Need > 1.29+, More details on https://github.com/docker/compose/issues/8154#issuecomment-817851623
 - [**jq**](https://stedolan.github.io/jq/)
 - [**curl** cheatsheet ;)](https://devhints.io/curl)
 - Patience
@@ -104,63 +86,18 @@ image based on alpine linux.
 We will just have to give the command:
 
 ```bash
-docker-compose build kong
+bash build-kong-image.sh
+
+docker-compose up -d
 ```
 
 and wait for the image to build.
 
-## 2. Kong DB + Database Migrations
+## 2. launch all the containers (Kong DB + Database Migrations + Kong + Konga + Keycloak)
 
-Kong uses a database server (postgresql in our case). For this reason it is necessary to initialize the database by
-launching the necessary migrations.
-
-First we start the kong-db service:
-
-```bash
-docker-compose up -d kong-db
-```
-
-Let's launch kong migrations:
-
-```bash
-docker-compose run --rm kong kong migrations bootstrap
-```
-
-:raised_hand: In case you're upgrading kong from previous versions, probably you may need to run migrations. In this case, you can give this command:
-
-```bash
-docker-compose run --rm kong kong migrations up
-```
-
-At this point we can start kong:
-
-```bash
-docker-compose up -d kong
-```
-
-Let's verify that you have the two services running:
-
-```bash
-docker-compose ps
-```
-
-And finally, let's verify that the OIDC plugin is present on Kong:
-
-```bash
-curl -s http://localhost:8001 | jq .plugins.available_on_server.oidc
-```
-
-The result of this call should be `true`. The presence of the plugin does not indicate that it is already active.
-
-## 3. Konga
+Kong uses a database server (postgresql in our case). For this reason it is necessary to initialize the database by launching the necessary migrations.
 
 Konga is an administration panel for Kong. It offers us a visual panel through which to carry out Kong's configurations (as well as inspect the configurations made from the command line).
-
-We start konga with the command:
-
-```bash
-docker-compose up -d konga
-```
 
 Konga is listening on port 1337. Therefore we launch a browser and point to the url
 [http://localhost:1337](http://localhost:1337).
@@ -173,7 +110,7 @@ Once logged in, we will need to activate the connection to Kong. Enter in "Name"
 
 At this point we will have our instance of Konga ready for use!
 
-## 4. Creation of a service and a route
+## 3. Creation of a service and a route
 
 To test the system, we will use [Mockbin](http://mockbin.org/) (a service that generates endpoints to test HTTP requests, responses, sockets and APIs).
 
@@ -227,42 +164,26 @@ $ curl -s http://localhost:8000/mock
 
 ```
 
-# 5. Keycloak containers
+## 4. Configuration of realm and clients in Keycloak
 
-We start the keycloak database service:
+### Keypoints
+- Need to Add a New Realm
+- Need to Add Two Clients
+  - One client that will be used by Kong, through the OIDC plugin.
+    > The important thing here is the access type: "public" means that the login process needs users credentials to be completed.
+    > 
+    > If you need to redirect to the Keycloak's login page, you need to config the `Root URL (such as http://192.168.31.87:3000)`, `Valid Redirect URIs (such as http://192.168.31.87:3000/*)` and `Web Origins (such as http://192.168.31.87:3000)`, 
 
-```bash
-docker-compose up -d keycloak-db
-```
+  - Another client that we'll use to access the API through Kong.
+    > Client Protocol: this account is for OIDC, so choose "openid-connect"
+    >
+    > Access Type: "confidential". This clients requires a secret to initiate the login process. This key will be used later on kong OIDC configuration.
+    >
+    > Root Url
+    >
+    > Valid redirect URLs
 
-We start the keycloak service:
-
-```bash
-docker-compose up -d keycloak
-```
-
-We check that everything is standing with:
-
-```bash
-docker-compose ps
-```
-
-We should see all the containers running:
-
-```bash
-                     Name                                   Command               State                                               Ports
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-kong-konga-keycloak_keycloak-db_1_6cf898ee0278   docker-entrypoint.sh postgres    Up      0.0.0.0:25432->5432/tcp
-kong-konga-keycloak_keycloak_1_86084fa93065      /opt/jboss/tools/docker-en ...   Up      0.0.0.0:8180->8080/tcp, 8443/tcp
-kong-konga-keycloak_kong-db_1_74c7d714a18f       docker-entrypoint.sh postgres    Up      0.0.0.0:15432->5432/tcp
-kong-konga-keycloak_kong_1_db9239a81fc8          /docker-entrypoint.sh kong ...   Up      0.0.0.0:8000->8000/tcp, 0.0.0.0:8001->8001/tcp, 0.0.0.0:8443->8443/tcp, 0.0.0.0:8444->8444/tcp
-kong-konga-keycloak_konga_1_e925524dbfcb         /app/start.sh                    Up      0.0.0.0:1337->1337/tcp
-
-
-```
-
-## 6. Configuration of realm and clients in Keycloak
-
+### How to config Keycloak
 Keycloak will be available at the url [http://localhost:8180](http://localhost:8180).
 
 You can login using credentials inside the docker-compose.yml file. (default credentials are
@@ -337,7 +258,7 @@ Click "Reset Password" to apply the new credential.
 
 ![Change Password](images/keycloak-user-change-password.png)
 
-## 7. Kong configuration as Keycloak client
+## 5. Kong configuration as Keycloak client
 
 to be able to activate the functionality of the OIDC with Kong as a client of Keycloak, and to allow introspection
 (points 6 and 7 of the initial image) it is necessary to invoke an Admin Rest API of Kong.
@@ -442,7 +363,7 @@ You can see the configuration visually through Konga > [Plugins](http://localhos
 
 We're ready to do the final test !
 
-# 8. Final test
+# 6. Final test
 
 Before begin, be sure you've setup the HOST_IP environment variable, like done under
 [Kong Configuration](#7-Kong-configuration-as-keycloak-client).
