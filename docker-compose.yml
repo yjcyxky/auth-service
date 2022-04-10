@@ -1,13 +1,5 @@
 version: '3.4'
 
-x-kong-config: &kong-env
-  KONG_DATABASE: postgres
-  KONG_PG_HOST: database
-  KONG_PG_PORT: 5432
-  KONG_PG_DATABASE: kong
-  KONG_PG_USER: postgres
-  KONG_PG_PASSWORD: ${POSTGRES_PASSWORD}
-
 networks: 
   biominer-lab-network:
     external:
@@ -17,14 +9,14 @@ services:
   database:
     image: postgres:11-alpine
     volumes:
-      - ${DATA_DIR}/database:/var/lib/postgresql/data
-      - ${DATA_DIR}/conf/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - ./data/database:/var/lib/postgresql/data
+      - ./data/conf/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     networks:
       - biominer-lab-network
     ports:
       - "${EXTERNAL_DB_PORT}:5432"
     environment:
-      POSTGRES_PASSWORD:    ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -40,7 +32,7 @@ services:
       database:
         condition: service_healthy
     volumes:
-      - ${DATA_DIR}/kong/docker-entrypoint.sh:/docker-entrypoint.sh
+      - ./data/kong/docker-entrypoint.sh:/docker-entrypoint.sh
       # Temporary solution to extract user profile data from the access token
       # Need to release as a custom plugin and replace token-to-header-extractor plugin
       - ./lua/token-extractor-handler.lua:/usr/local/share/lua/5.1/kong/plugins/token-to-header-extractor/handler.lua
@@ -52,7 +44,12 @@ services:
       - "${KONG_HTTPS_PORT}:8443" # Listener  (SSL)
       - "${KONG_ADMIN_HTTPS_PORT}:8444" # Admin API (SSL)
     environment:
-      <<: *kong-env
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: database
+      KONG_PG_PORT: 5432
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: postgres
+      KONG_PG_PASSWORD: ${POSTGRES_PASSWORD}
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG:  /dev/stderr
@@ -72,14 +69,18 @@ services:
       - biominer-lab-network
     ports:
       - "1337:1337" # konga
+    links:
+      - database:database
     environment:
       DB_ADAPTER: postgres
       DB_HOST: database
       DB_PORT: '5432'
       DB_USER: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_DATABASE: kong
-      NODE_ENV: production
+      DB_DATABASE: konga
+      # Don't set to production, it will fail to start because of the missing tables.
+      # More details on https://github.com/pantsel/konga/issues/35#issuecomment-383541136
+      NODE_ENV: development
     healthcheck:
       test: "wget --spider http://localhost:1337/api/settings || exit 1"
       interval: 10s
@@ -88,11 +89,11 @@ services:
     restart: on-failure
 
   keycloak:
-    image: quay.io/keycloak/keycloak:17.0.1
+    # More details on https://hub.docker.com/r/jboss/keycloak
+    image: jboss/keycloak:16.1.1
     depends_on:
       database:
         condition: service_healthy
-    command: start-dev
     networks:
       - biominer-lab-network
     ports:
@@ -100,16 +101,16 @@ services:
     links:
       - database:database
     environment:
-      DB_VENDOR: POSTGRES
+      DB_VENDOR: postgres
       DB_ADDR: database
       DB_PORT: 5432
       DB_DATABASE: keycloak
       DB_USER: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_USER: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
     healthcheck:
-      test: "curl -f http://localhost:8080/realms/master || exit 1"
+      test: "curl -f http://localhost:8080/auth/realms/master || exit 1"
       interval: 10s
       timeout: 5s
       retries: 5
